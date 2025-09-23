@@ -27,6 +27,8 @@ from ..utils import EdgeType, VertexType, toggle_edge, vertex_is_zx
 from ..utils import FloatInt, FractionLike
 from ..tensor import tensorfy, tensor_to_matrix
 
+from ..noise import BaseNoiseModel
+
 from .scalar import Scalar
 
 if TYPE_CHECKING:
@@ -98,6 +100,8 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
         # vdata of v1 into v0 during spider fusion etc.
         self.merge_vdata: Optional[Callable[[VT,VT], None]] = None
         self.variable_types: Dict[str,bool] = dict() # mapping of variable names to their type (bool or continuous)
+
+        self.noise_model: Optional[BaseNoiseModel] = None
 
     # MANDATORY OVERRIDES {{{
 
@@ -256,6 +260,44 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
     def set_edata(self, edge: ET, key: str, val: Any) -> None:
         """Sets the edge data associated to key to val."""
         raise NotImplementedError("Not implemented on backend " + type(self).backend)
+    
+    def drop_edata(self, edge: ET, key: str) -> None:
+        """Removes the edge data associated to key. The inverse operation of `set_edata`"""
+        edata_dict = self.edata_dict(edge)
+        if len(edata_dict) == 0:
+            return
+        
+        new_edata = { kk: val for kk, val in edata_dict.items() if kk != key }
+        self.set_edata_dict(edge, new_edata)
+    
+
+    def set_noise_model(self, model: Optional[BaseNoiseModel | str]) -> None:
+        """Initialize a noise model for the graph. If a noise model was already present, it is cleared first. If `model` is None, any existing noise model is removed."""
+        if isinstance(model, str):
+            model = model.lower()
+            if model == "edge_flip":
+                from ..noise import EdgeFlipNoiseModel
+                model = EdgeFlipNoiseModel()
+            else:
+                raise ValueError(f"Unknown noise model '{model}'")
+
+        if self.noise_model is not None:
+            self.noise_model.remove()
+
+        self.noise_model = model
+
+        if model is not None:
+            model.graph = self # overwrite the graph in the noise model
+
+    def edge_decorations(self, edge: ET) -> List[str]:
+        """Returns a list of strings describing the decorations for visualizing the edge."""
+        dec = []
+        
+        if self.noise_model is not None:
+            dec += self.noise_model.edge_decorations(edge)
+        
+        return dec
+
     # }}}
 
 

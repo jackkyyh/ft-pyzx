@@ -112,6 +112,9 @@ def _to_tikz(g: BaseGraph[VT,ET], draw_scalar:bool = False,
     for e in g.edges():
         v,w = g.edge_st(e)
         et = g.edge_type(e)
+        dec = g.edge_decorations(e)
+        # TODO: define how ideal H edges and X edges should look like
+        
         s = "        \\draw "
         if et == EdgeType.HADAMARD:
             if g.type(v) != VertexType.BOUNDARY and g.type(w) != VertexType.BOUNDARY:
@@ -127,7 +130,10 @@ def _to_tikz(g: BaseGraph[VT,ET], draw_scalar:bool = False,
             style = settings.tikz_classes['W-io-edge']
             if style: s += "[style={:s}] ".format(style)
         else:
-            style = settings.tikz_classes['edge']
+            if 'ideal' in dec:
+                style = settings.tikz_classes['ideal-edge']
+            else:
+                style = settings.tikz_classes['edge']
             if style: s += "[style={:s}] ".format(style)
         s += "({:d}) to ({:d});".format(v+idoffset,w+idoffset)
         edges.append(s)
