@@ -25,8 +25,14 @@ function nodeColor(t) {
     else if (t == 6) return _settings_colors['Zalt']; // "#ccffcc";
 }
 
-function edgeColor(t) {
-    if (t == 1) return _settings_colors['edge']; //"black";
+function edgeColor(t, dec) {
+    // TODO: define how ideal H edges and X edges should look like
+    if (t == 1){
+        if(dec.includes('ideal')){
+            return _settings_colors['idealEdge']; // "ideal edge";
+        }
+        return _settings_colors['edge']; //"black";
+    } 
     else if (t == 2) return _settings_colors['Hedge']; // "#08f";
     else if (t == 3) return _settings_colors['Xedge']; // "gray";
 }
@@ -120,7 +126,7 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         .selectAll("line")
         .data(graph.links)
         .enter().append("path")
-        .attr("stroke", function(d) { return edgeColor(d.t); })
+        .attr("stroke", function(d) { return edgeColor(d.t, d.dec); })
         .attr("fill", "transparent")
         .attr("style", "stroke-width: 1.5px");
 

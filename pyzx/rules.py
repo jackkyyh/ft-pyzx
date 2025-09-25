@@ -46,7 +46,7 @@ Warning:
 
 """
 
-from typing import Tuple, List, Dict, Set, FrozenSet
+from typing import Mapping, Tuple, List, Dict, Set, FrozenSet
 from typing import Any, Callable, TypeVar, Optional, Union
 from typing_extensions import Literal
 
@@ -62,7 +62,8 @@ from .utils import VertexType, EdgeType, get_w_partner, get_z_box_label, set_z_b
 from .graph.base import BaseGraph, VT, ET
 from .symbolic import Poly
 
-RewriteOutputType = Tuple[Dict[Tuple[VT,VT],List[int]], List[VT], List[ET], bool]
+ETabType = Mapping[Tuple[VT,VT], Tuple[int, int, Mapping[str, Any]]]
+RewriteOutputType = Tuple[Mapping[Tuple[VT,VT],List[int] | Tuple[int, int, Mapping[str, Any]]], List[VT], List[ET], bool]
 MatchObject = TypeVar('MatchObject')
 
 def apply_rule(
@@ -830,14 +831,26 @@ def match_ids_parallel(
 def remove_ids(g: BaseGraph[VT,ET], matches: List[MatchIdType[VT]]) -> RewriteOutputType[VT,ET]:
     """Given the output of ``match_ids(_parallel)``, returns a list of edges to add,
     and vertices to remove."""
-    etab : Dict[Tuple[VT,VT],List[int]] = dict()
+    etab : ETabType[VT] = dict()
     rem: List[VT] = []
     for v,v0,v1,et in matches:
         rem.append(v)
         e = (v0,v1)
-        if not e in etab: etab[e] = [0,0]
-        if et == EdgeType.SIMPLE: etab[e][0] += 1
-        else: etab[e][1] += 1
+        if not e in etab: etab[e] = (0,0,dict())
+        (*ecount, edata) = etab[e]
+        if et == EdgeType.SIMPLE: ecount[0] += 1
+        else: ecount[1] += 1
+    
+        if g.noise_model is not None:
+            accept, new_edata = g.noise_model.check_rewrite("id_simp", (v,v0,v1,et))
+            if not accept:
+                continue
+
+            if sum(ecount) == 1 or g.noise_model.noise_data_key not in new_edata:
+                edata = new_edata
+        
+        etab[e] = (ecount[0], ecount[1], edata)
+
     return (etab, rem, [], False)
 
 

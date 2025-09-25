@@ -138,11 +138,13 @@ tikz_classes = {
     'dummy': 'text',
     'edge': '',
     'H-edge': 'hadamard edge',
-    'W-io-edge': 'W io edge'
+    'W-io-edge': 'W io edge',
+    'ideal-edge': 'ideal edge',
 }
 
 original_colors = {
     'edge': '#000000',
+    'idealEdge': '#9b34eb',
     'Hedge': '#0088ff',
     'Xedge': '#999999',
     'boundary': '#000000',

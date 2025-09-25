@@ -200,17 +200,23 @@ def draw_matplotlib(
         sp = layout[g.edge_s(e)]
         tp = layout[g.edge_t(e)]
         et = g.edge_type(e)
+        decs = g.edge_decorations(e)
         n_row = vs_on_row.get(g.row(g.edge_s(e)), 0)
 
         dx = tp[0] - sp[0]
         dy = tp[1] - sp[1]
         bend_wire = (dx == 0) and h_edge_draw == 'blue' and n_row > 2
+
+        # TODO: define how ideal H edges and X edges should look like
         if et == 2 and h_edge_draw == 'blue':
             ecol = '#0099ff'
         elif et == 3:
             ecol = 'gray'
         else:
-            ecol = 'black'
+            if "ideal" in decs:
+                ecol = "violet"
+            else:
+                ecol = 'black'
 
         if bend_wire:
             bend = 0.25
@@ -352,6 +358,7 @@ def graph_json(g: BaseGraph[VT, ET],
         links.append({'source': s,
                       'target': t,
                       't': g.edge_type(e),
+                      'dec': g.edge_decorations(e),
                       'index': i })
         counts[(s,t)] = i + 1
     for link in links:

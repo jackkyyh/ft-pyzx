@@ -27,6 +27,8 @@ from ..utils import EdgeType, VertexType, toggle_edge, vertex_is_zx
 from ..utils import FloatInt, FractionLike
 from ..tensor import tensorfy, tensor_to_matrix
 
+from ..noise import BaseNoiseModel, EdgeFlipNoiseModel
+
 from .scalar import Scalar
 
 if TYPE_CHECKING:
@@ -98,6 +100,8 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
         # vdata of v1 into v0 during spider fusion etc.
         self.merge_vdata: Optional[Callable[[VT,VT], None]] = None
         self.variable_types: Dict[str,bool] = dict() # mapping of variable names to their type (bool or continuous)
+
+        self.noise_model: Optional[BaseNoiseModel] = None
 
     # MANDATORY OVERRIDES {{{
 
@@ -256,6 +260,59 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
     def set_edata(self, edge: ET, key: str, val: Any) -> None:
         """Sets the edge data associated to key to val."""
         raise NotImplementedError("Not implemented on backend " + type(self).backend)
+    
+    def drop_edata(self, edge: ET, key: str) -> None:
+        """Removes the edge data associated to key. The inverse operation of `set_edata`"""
+        edata_dict = self.edata_dict(edge)
+        if len(edata_dict) == 0:
+            return
+        
+        new_edata = { kk: val for kk, val in edata_dict.items() if kk != key }
+        self.set_edata_dict(edge, new_edata)
+    
+
+    def set_noise_model(self, model: Optional[BaseNoiseModel | str]) -> None:
+        """Initialize a noise model for the graph. If a noise model was already present, it is cleared first. If `model` is None, any existing noise model is removed."""
+        if isinstance(model, str):
+            model = model.lower()
+            if model == "edge_flip":
+                from ..noise import EdgeFlipNoiseModel
+                model = EdgeFlipNoiseModel()
+            else:
+                raise ValueError(f"Unknown noise model '{model}'")
+
+        if self.noise_model is not None:
+            self.noise_model.remove()
+
+        self.noise_model = model
+
+        if model is not None:
+            model.graph = self # overwrite the graph in the noise model
+
+    def edge_decorations(self, edge: ET) -> List[str]:
+        """Returns a list of strings describing the decorations for visualizing the edge."""
+        dec = []
+        
+        if self.noise_model is not None:
+            dec += self.noise_model.edge_decorations(edge)
+        
+        return dec
+
+    def set_idealized(self, edge: ET) -> None:
+        """
+        Set an edge to be idealized (no noise). Only available for noise models that have a `set_idealized` method.
+        Does not check if `edge` exists in the graph.
+        """
+        
+        nm = self.noise_model
+
+        if nm is None:
+            raise TypeError("No noise model is set on this graph.")
+        elif not hasattr(nm, 'set_idealized'):
+            raise TypeError(f"{nm.__class__.__name__} does not have `set_idealized` method.")
+        
+        nm.set_idealized(edge) # type: ignore
+        
     # }}}
 
 
@@ -910,15 +967,17 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
 
 
 
-    def add_edge_table(self, etab:Mapping[Tuple[VT,VT],List[int]]) -> None:
+    def add_edge_table(self, etab:Mapping[Tuple[VT,VT],List[int] | Tuple[int, int, Mapping[str, Any]]]) -> None:
         """Takes a dictionary mapping (source,target) --> (#edges, #h-edges) specifying that
         #edges regular edges must be added between source and target and $h-edges Hadamard edges.
         The method selectively adds or removes edges to produce that ZX diagram which would
         result from adding (#edges, #h-edges), and then removing all parallel edges using Hopf/spider laws."""
 
-        for st, (ns, nh) in etab.items():
+        for st, (ns, nh, *edata) in etab.items():
             for _ in range(ns): self.add_edge(st, EdgeType.SIMPLE)
             for _ in range(nh): self.add_edge(st, EdgeType.HADAMARD)
+            if len(edata) > 0 and isinstance(edata[0], Mapping):
+                self.set_edata_dict(self.edge(*st), dict(edata[0]))
 
 
     def set_phase_master(self, m: 'simplify.Simplifier') -> None:
