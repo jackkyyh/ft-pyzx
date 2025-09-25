@@ -50,7 +50,7 @@ class EdgeFlipNoiseModel(BaseNoiseModel):
         super().__init__(default_noise_param=1)
 
     def set_idealized(self, edge: ET):
-        """Set an edge to be idealized (no noise). Does not check if `edge` exists in the graph."""
+        """Set an edge to be idealized (no noise)."""
         self.set_edge_noise_param(edge, float("inf"))
 
     def edge_decorations(self, edge: ET) -> List[str]:

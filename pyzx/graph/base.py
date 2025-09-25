@@ -27,7 +27,7 @@ from ..utils import EdgeType, VertexType, toggle_edge, vertex_is_zx
 from ..utils import FloatInt, FractionLike
 from ..tensor import tensorfy, tensor_to_matrix
 
-from ..noise import BaseNoiseModel
+from ..noise import BaseNoiseModel, EdgeFlipNoiseModel
 
 from .scalar import Scalar
 
@@ -298,6 +298,21 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
         
         return dec
 
+    def set_idealized(self, edge: ET) -> None:
+        """
+        Set an edge to be idealized (no noise). Only available for noise models that have a `set_idealized` method.
+        Does not check if `edge` exists in the graph.
+        """
+        
+        nm = self.noise_model
+
+        if nm is None:
+            raise TypeError("No noise model is set on this graph.")
+        elif not hasattr(nm, 'set_idealized'):
+            raise TypeError(f"{nm.__class__.__name__} does not have `set_idealized` method.")
+        
+        nm.set_idealized(edge) # type: ignore
+        
     # }}}
 
 
