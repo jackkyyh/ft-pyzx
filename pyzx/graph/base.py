@@ -967,15 +967,17 @@ class BaseGraph(Generic[VT, ET], metaclass=DocstringMeta):
 
 
 
-    def add_edge_table(self, etab:Mapping[Tuple[VT,VT],List[int]]) -> None:
+    def add_edge_table(self, etab:Mapping[Tuple[VT,VT],List[int] | Tuple[int, int, Mapping[str, Any]]]) -> None:
         """Takes a dictionary mapping (source,target) --> (#edges, #h-edges) specifying that
         #edges regular edges must be added between source and target and $h-edges Hadamard edges.
         The method selectively adds or removes edges to produce that ZX diagram which would
         result from adding (#edges, #h-edges), and then removing all parallel edges using Hopf/spider laws."""
 
-        for st, (ns, nh) in etab.items():
+        for st, (ns, nh, *edata) in etab.items():
             for _ in range(ns): self.add_edge(st, EdgeType.SIMPLE)
             for _ in range(nh): self.add_edge(st, EdgeType.HADAMARD)
+            if len(edata) > 0 and isinstance(edata[0], Mapping):
+                self.set_edata_dict(self.edge(*st), dict(edata[0]))
 
 
     def set_phase_master(self, m: 'simplify.Simplifier') -> None:
